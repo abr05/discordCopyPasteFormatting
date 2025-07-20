@@ -33,6 +33,7 @@ h2 {
 <h2>Paste from Discord:</h2>
 <div id="input" contenteditable="true" placeholder="Paste your Discord content here..."></div>
 <h2>Cleaned Output (Copy this):</h2>
+<button id="copyBtn" style="margin-bottom: 10px; padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Copy to Clipboard</button>
 <div id="output" contenteditable="true"></div>
 
 <script>
@@ -149,10 +150,18 @@ function cleanHTML(inputHtml) {
 
 const input = document.getElementById('input');
 const output = document.getElementById('output');
+const copyBtn = document.getElementById('copyBtn');
+
+let cleanedText = '';
 
 input.addEventListener('input', () => {
     const cleaned = cleanHTML(input.innerHTML);
     output.innerHTML = cleaned;
+    
+    // Store the actual text content for copying
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = cleaned;
+    cleanedText = tempDiv.textContent || tempDiv.innerText || '';
 });
 
 // Also trigger on paste events
@@ -161,7 +170,43 @@ input.addEventListener('paste', () => {
     setTimeout(() => {
         const cleaned = cleanHTML(input.innerHTML);
         output.innerHTML = cleaned;
+        
+        // Store the actual text content for copying
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = cleaned;
+        cleanedText = tempDiv.textContent || tempDiv.innerText || '';
     }, 10);
+});
+
+// Copy button functionality
+copyBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(cleanedText);
+        copyBtn.textContent = 'Copied!';
+        copyBtn.style.backgroundColor = '#45a049';
+        
+        // Reset button after 2 seconds
+        setTimeout(() => {
+            copyBtn.textContent = 'Copy to Clipboard';
+            copyBtn.style.backgroundColor = '#4CAF50';
+        }, 2000);
+    } catch (err) {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = cleanedText;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        copyBtn.textContent = 'Copied!';
+        copyBtn.style.backgroundColor = '#45a049';
+        
+        setTimeout(() => {
+            copyBtn.textContent = 'Copy to Clipboard';
+            copyBtn.style.backgroundColor = '#4CAF50';
+        }, 2000);
+    }
 });
 </script>
 </body>
