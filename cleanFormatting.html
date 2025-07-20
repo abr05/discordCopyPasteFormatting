@@ -145,6 +145,9 @@ function cleanHTML(inputHtml) {
     // Clean up any leading newlines
     html = html.replace(/^\n+/, '');
     
+    // Convert newlines to <br> tags for proper HTML copying
+    html = html.replace(/\n/g, '<br>');
+    
     return html;
 }
 
@@ -152,16 +155,9 @@ const input = document.getElementById('input');
 const output = document.getElementById('output');
 const copyBtn = document.getElementById('copyBtn');
 
-let cleanedText = '';
-
 input.addEventListener('input', () => {
     const cleaned = cleanHTML(input.innerHTML);
     output.innerHTML = cleaned;
-    
-    // Store the actual text content for copying
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = cleaned;
-    cleanedText = tempDiv.textContent || tempDiv.innerText || '';
 });
 
 // Also trigger on paste events
@@ -170,18 +166,34 @@ input.addEventListener('paste', () => {
     setTimeout(() => {
         const cleaned = cleanHTML(input.innerHTML);
         output.innerHTML = cleaned;
-        
-        // Store the actual text content for copying
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = cleaned;
-        cleanedText = tempDiv.textContent || tempDiv.innerText || '';
     }, 10);
 });
 
-// Copy button functionality
+// Copy button functionality - copy rich text with formatting preserved
 copyBtn.addEventListener('click', async () => {
     try {
-        await navigator.clipboard.writeText(cleanedText);
+        // Create a selection of the output div to preserve formatting
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(output);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        // Use the clipboard API to write both HTML and plain text
+        const htmlContent = output.innerHTML;
+        const textContent = output.textContent || output.innerText || '';
+        
+        // Create clipboard data with both HTML and plain text versions
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([htmlContent], { type: 'text/html' }),
+                'text/plain': new Blob([textContent], { type: 'text/plain' })
+            })
+        ]);
+        
+        // Clear selection
+        selection.removeAllRanges();
+        
         copyBtn.textContent = 'Copied!';
         copyBtn.style.backgroundColor = '#45a049';
         
@@ -190,22 +202,43 @@ copyBtn.addEventListener('click', async () => {
             copyBtn.textContent = 'Copy to Clipboard';
             copyBtn.style.backgroundColor = '#4CAF50';
         }, 2000);
+        
     } catch (err) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = cleanedText;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        copyBtn.textContent = 'Copied!';
-        copyBtn.style.backgroundColor = '#45a049';
-        
-        setTimeout(() => {
-            copyBtn.textContent = 'Copy to Clipboard';
-            copyBtn.style.backgroundColor = '#4CAF50';
-        }, 2000);
+        // Fallback: select the content and use document.execCommand
+        try {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(output);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            document.execCommand('copy');
+            selection.removeAllRanges();
+            
+            copyBtn.textContent = 'Copied!';
+            copyBtn.style.backgroundColor = '#45a049';
+            
+            setTimeout(() => {
+                copyBtn.textContent = 'Copy to Clipboard';
+                copyBtn.style.backgroundColor = '#4CAF50';
+            }, 2000);
+        } catch (fallbackErr) {
+            // Final fallback - copy plain text only
+            const textArea = document.createElement('textarea');
+            textArea.value = output.textContent || output.innerText || '';
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            copyBtn.textContent = 'Copied!';
+            copyBtn.style.backgroundColor = '#45a049';
+            
+            setTimeout(() => {
+                copyBtn.textContent = 'Copy to Clipboard';
+                copyBtn.style.backgroundColor = '#4CAF50';
+            }, 2000);
+        }
     }
 });
 </script>
