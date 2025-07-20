@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Discord Paste Cleaner (Keep Bold/Italic Only)</title>
+<style>
+#input, #output {
+    width: 100%;
+    min-height: 200px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 20px;
+    font-family: Arial, sans-serif;
+    white-space: pre-wrap; /* Preserve whitespace and line breaks */
+}
+#input { 
+    border-color: black; 
+    background-color: #f9f9f9;
+}
+#output { 
+    border-color: green; 
+    background-color: #f0fff0;
+}
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+}
+h2 {
+    color: #333;
+}
+</style>
+</head>
+<body>
+<h2>Paste from Discord:</h2>
+<div id="input" contenteditable="true" placeholder="Paste your Discord content here..."></div>
+<h2>Cleaned Output (Copy this):</h2>
+<div id="output" contenteditable="true"></div>
+
+<script>
+const allowedTags = ['B', 'STRONG', 'I', 'EM'];
+
+function cleanNode(node) {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+        const tagName = node.tagName.toUpperCase();
+        
+        // If it's an allowed formatting tag, keep it but clean its attributes
+        if (allowedTags.includes(tagName)) {
+            const newElement = document.createElement(tagName);
+            
+            // Process all child nodes
+            for (const child of Array.from(node.childNodes)) {
+                const cleanedChild = cleanNode(child);
+                if (cleanedChild) {
+                    newElement.appendChild(cleanedChild);
+                }
+            }
+            return newElement;
+        } else if (tagName === 'DIV') {
+            // For DIV tags, add a newline separator before processing content
+            const fragment = document.createDocumentFragment();
+            
+            // Add newline before this div's content (except for the first div)
+            fragment.appendChild(document.createTextNode('\n'));
+            
+            for (const child of Array.from(node.childNodes)) {
+                const cleanedChild = cleanNode(child);
+                if (cleanedChild) {
+                    fragment.appendChild(cleanedChild);
+                }
+            }
+            return fragment;
+        } else {
+            // For other non-allowed tags, extract their content but don't keep the tag
+            const fragment = document.createDocumentFragment();
+            for (const child of Array.from(node.childNodes)) {
+                const cleanedChild = cleanNode(child);
+                if (cleanedChild) {
+                    fragment.appendChild(cleanedChild);
+                }
+            }
+            return fragment;
+        }
+    } else if (node.nodeType === Node.TEXT_NODE) {
+        // Keep text nodes as-is
+        return document.createTextNode(node.textContent);
+    }
+    
+    // Skip other node types (comments, etc.)
+    return null;
+}
+
+function cleanHTML(inputHtml) {
+    // Create a temporary container
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = inputHtml;
+    
+    // First pass: remove obvious Discord artifacts
+    const discordSelectors = [
+        '[class*="emoji"]',
+        '[class*="reaction"]', 
+        '[class*="timestamp"]',
+        '[class*="embed"]',
+        '[class*="message-accessories"]',
+        '[class*="accessory"]',
+        '[class*="button"]',
+        '[class*="hover"]',
+        '[class*="avatar"]',
+        '[class*="header"]',
+        '[class*="username"]',
+        '[id*="emoji"]',
+        '[id*="reaction"]',
+        '[id*="message-accessories"]',
+        '[id*="message-username"]',
+        '[id*="message-timestamp"]',
+        'img',
+        'svg',
+        'time'
+    ];
+    
+    discordSelectors.forEach(selector => {
+        tempDiv.querySelectorAll(selector).forEach(el => el.remove());
+    });
+    
+    // Second pass: clean the remaining structure
+    const cleanedFragment = document.createDocumentFragment();
+    
+    for (const child of Array.from(tempDiv.childNodes)) {
+        const cleanedChild = cleanNode(child);
+        if (cleanedChild) {
+            cleanedFragment.appendChild(cleanedChild);
+        }
+    }
+    
+    // Convert back to HTML
+    const resultDiv = document.createElement('div');
+    resultDiv.appendChild(cleanedFragment);
+    
+    // Now handle the newline doubling by working with the text content
+    let html = resultDiv.innerHTML;
+    
+    // Clean up multiple consecutive newlines and double all single newlines
+    html = html.replace(/\n{3,}/g, '\n\n'); // Replace 3+ newlines with just 2
+    html = html.replace(/\n(?!\n)/g, '\n'); // Double all single newlines
+    
+    // Clean up any leading newlines
+    html = html.replace(/^\n+/, '');
+    
+    return html;
+}
+
+const input = document.getElementById('input');
+const output = document.getElementById('output');
+
+input.addEventListener('input', () => {
+    const cleaned = cleanHTML(input.innerHTML);
+    output.innerHTML = cleaned;
+});
+
+// Also trigger on paste events
+input.addEventListener('paste', () => {
+    // Small delay to let paste complete
+    setTimeout(() => {
+        const cleaned = cleanHTML(input.innerHTML);
+        output.innerHTML = cleaned;
+    }, 10);
+});
+</script>
+</body>
+</html>
